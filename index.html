@@ -1219,11 +1219,42 @@ function filtered() {
       const cname = r.co >= 0 ? COLORS[r.co].toLowerCase() : '';
       if (!cname.includes(colorQ)) return false;
     }
-    if (comp) {
+   if (comp) {
       if (!matchesComposition(r, comp)) return false;
     }
     return true;
   });
+}
+
+// Composition filter — independent of the time-standard Blancos override.
+// Each option matches its true dimension so they can combine with color search:
+//   Blancos  → color name is white (any fiber)
+//   Toallas  → article is a towel (any fiber, any color)
+//   100% CO / 100% pes / 50/50 → natural fiber composition (any color)
+// This lets "100% CO" + color "BLANCO" return the cotton whites, etc.
+function matchesComposition(rec, comp) {
+  const col = (rec.co >= 0 ? COLORS[rec.co] : '').toUpperCase();
+  const art = (rec.a >= 0 ? ARTICLES[rec.a] : '').toUpperCase();
+  const fib = (rec.fi >= 0 ? FIBERS[rec.fi] : '').toLowerCase();
+
+  if (comp === 'Blancos') return /BLANCO|BCO\b|WHITE|NIEVE|HUESO|CRUDO/.test(col);
+  if (comp === 'Toallas') return /TOALLA/.test(art);
+
+  if (!fib) return false;
+  let coPct = 0, pesPct = 0;
+  const re = /(\d+(?:\.\d+)?)\s*%?\s*([a-záéñ]+)/g;
+  let m;
+  while ((m = re.exec(fib)) !== null) {
+    const pct = parseFloat(m[1]);
+    const f = m[2];
+    if (/^(co|alg|algod)/.test(f)) coPct += pct;
+    else if (/^(pes|pol|nyl|ray)/.test(f)) pesPct += pct;
+  }
+  if (comp === '50/50')   return coPct >= 40 && pesPct >= 40;
+  if (comp === '100% CO') return coPct > pesPct;
+  if (comp === '100% pes') return pesPct > coPct;
+  return false;
+}
 }
 
 // Composition filter — independent of the time-standard Blancos override.
